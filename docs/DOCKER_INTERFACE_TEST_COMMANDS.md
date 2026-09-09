@@ -9,6 +9,11 @@ branch, `/dashboard` returns 404 because the HTML is not yet served by Docker.
 
 ## 1. Optional fresh clone
 
+The repository is private. Before cloning, the owner must add the teammate's
+GitHub account under the repository's collaborator settings. The teammate must
+accept the invitation and authenticate Git on their computer. No API key is
+required.
+
 Use this while Person 1's PR is still open:
 
 ```powershell

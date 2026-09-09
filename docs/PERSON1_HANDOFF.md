@@ -8,6 +8,9 @@ finish. It is a team handoff, not a replacement for the role guides.
 ## Git starting point
 
 - Repository: `https://github.com/victim6679000/ai-dos-shield`
+- The repository is private. The owner must add each teammate's GitHub account
+  as a collaborator, and each teammate must accept the invitation before
+  cloning. No API key is required.
 - Person 1 branch: `codex/person1-calibration`
 - Pull request: `https://github.com/victim6679000/ai-dos-shield/pull/1`
 - The pull request is open and mergeable. Until it is merged, Persons 2 and 3
