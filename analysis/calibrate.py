@@ -56,11 +56,21 @@ def _git_value(*args: str) -> str | None:
 
 
 def _git_metadata() -> dict[str, Any]:
-    status = _git_value("status", "--porcelain")
+    try:
+        status_result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=REPO_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        dirty: bool | None = bool(status_result.stdout.strip())
+    except (OSError, subprocess.CalledProcessError):
+        dirty = None
     return {
         "commit": _git_value("rev-parse", "HEAD"),
         "branch": _git_value("branch", "--show-current"),
-        "dirty": bool(status) if status is not None else None,
+        "dirty": dirty,
     }
 
 
