@@ -16,6 +16,7 @@ stand-in rather than a cheat.
 
 import asyncio
 import logging
+import math
 import os
 import random
 import time
@@ -37,6 +38,9 @@ INFER_WORKERS = int(os.getenv("INFER_WORKERS", "2"))
 TORCH_THREADS = int(os.getenv("TORCH_THREADS", "2"))
 MAX_NEW_TOKENS_CAP = int(os.getenv("MAX_NEW_TOKENS_CAP", "256"))
 MAX_TEXT_CHARS = int(os.getenv("MAX_TEXT_CHARS", "8000"))
+MAX_INPUT_TOKENS = int(os.getenv("MAX_INPUT_TOKENS", "512"))
+MODEL_WARMUP_REQUESTS = int(os.getenv("MODEL_WARMUP_REQUESTS", "3"))
+METRICS_WINDOW_SIZE = int(os.getenv("METRICS_WINDOW_SIZE", "200"))
 
 # Mock timing model. Replace these with numbers measured from YOUR laptop
 # (analysis/calibrate.py prints the exact line to paste here).
@@ -44,6 +48,7 @@ MOCK_BASE_MS = float(os.getenv("MOCK_BASE_MS", "60"))
 MOCK_MS_PER_OUT_TOKEN = float(os.getenv("MOCK_MS_PER_OUT_TOKEN", "18"))
 MOCK_MS_PER_IN_TOKEN = float(os.getenv("MOCK_MS_PER_IN_TOKEN", "0.8"))
 MOCK_JITTER = float(os.getenv("MOCK_JITTER", "0.10"))
+MOCK_CHARS_PER_TOKEN = float(os.getenv("MOCK_CHARS_PER_TOKEN", "4.0"))
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("inference")
@@ -89,39 +94,58 @@ def _load_model() -> None:
 
     # Warm up. The first forward pass is always an outlier and must never
     # appear in benchmark results.
-    for _ in range(3):
+    for _ in range(MODEL_WARMUP_REQUESTS):
         _run_real("warm up", 8)
 
     _model_ready = True
     log.info("model ready")
 
 
-def _run_real(text: str, max_new_tokens: int) -> str:
+def _run_real(text: str, max_new_tokens: int) -> tuple[str, float, int]:
+    """Return decoded output, generation-only milliseconds, and input tokens."""
     import torch
 
-    inputs = _tokenizer(text, return_tensors="pt", truncation=True, max_length=512)
+    # Tokenization is intentionally outside the timer. model_ms represents the
+    # scarce model-generation work, not parsing or response formatting.
+    inputs = _tokenizer(
+        text,
+        return_tensors="pt",
+        truncation=True,
+        max_length=MAX_INPUT_TOKENS,
+    )
+    input_tokens = int(inputs["input_ids"].shape[-1])
     with torch.no_grad():
+        t0 = time.perf_counter()
         out = _model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
-    return _tokenizer.decode(out[0], skip_special_tokens=True)
+        model_ms = (time.perf_counter() - t0) * 1000.0
+
+    # Decoding is also outside the timer for the same reason.
+    output = _tokenizer.decode(out[0], skip_special_tokens=True)
+    return output, model_ms, input_tokens
 
 
-def _run_mock(text: str, max_new_tokens: int) -> str:
-    est_in = max(1, len(text) / 4)
+def _run_mock(text: str, max_new_tokens: int) -> tuple[str, float, int]:
+    """Simulate only the model-generation portion of a real request."""
+    input_tokens = min(
+        MAX_INPUT_TOKENS,
+        max(1, math.ceil(len(text) / MOCK_CHARS_PER_TOKEN)),
+    )
     ms = (
         MOCK_BASE_MS
         + MOCK_MS_PER_OUT_TOKEN * max_new_tokens
-        + MOCK_MS_PER_IN_TOKEN * est_in
+        + MOCK_MS_PER_IN_TOKEN * input_tokens
     )
     ms *= 1.0 + random.uniform(-MOCK_JITTER, MOCK_JITTER)
-    time.sleep(ms / 1000.0)
-    return f"[mock output for {max_new_tokens} tokens]"
 
-
-def _blocking_infer(text: str, max_new_tokens: int) -> tuple[str, float]:
-    """Runs in the executor thread. Returns (output, model_ms)."""
     t0 = time.perf_counter()
-    output = _run_mock(text, max_new_tokens) if MOCK_MODEL else _run_real(text, max_new_tokens)
-    return output, (time.perf_counter() - t0) * 1000.0
+    time.sleep(ms / 1000.0)
+    model_ms = (time.perf_counter() - t0) * 1000.0
+    return f"[mock output for {max_new_tokens} tokens]", model_ms, input_tokens
+
+
+def _blocking_infer(text: str, max_new_tokens: int) -> tuple[str, float, int]:
+    """Run the selected forward pass inside the bounded executor thread."""
+    return _run_mock(text, max_new_tokens) if MOCK_MODEL else _run_real(text, max_new_tokens)
 
 
 @asynccontextmanager
@@ -139,7 +163,16 @@ app = FastAPI(title="AI Inference Server", lifespan=lifespan)
 @app.get("/health")
 def health():
     """Must stay cheap. Never runs inference."""
-    return {"status": "ok", "model_ready": _model_ready, "mock": MOCK_MODEL}
+    return {
+        "status": "ok",
+        "model_ready": _model_ready,
+        "mock": MOCK_MODEL,
+        "model": MODEL_NAME,
+        "workers": INFER_WORKERS,
+        "torch_threads": TORCH_THREADS,
+        "max_input_tokens": MAX_INPUT_TOKENS,
+        "max_new_tokens_cap": MAX_NEW_TOKENS_CAP,
+    }
 
 
 @app.get("/metrics")
@@ -177,15 +210,20 @@ async def infer(req: InferRequest):
 
     try:
         loop = asyncio.get_running_loop()
-        output, model_ms = await loop.run_in_executor(
+        output, model_ms, input_tokens = await loop.run_in_executor(
             _executor, _blocking_infer, req.text, max_new_tokens
         )
         with _state_lock:
             _ok += 1
             _recent_model_ms.append(model_ms)
-            if len(_recent_model_ms) > 200:
-                del _recent_model_ms[:-200]
-        return {"request_id": request_id, "output": output, "model_ms": round(model_ms, 2)}
+            if len(_recent_model_ms) > METRICS_WINDOW_SIZE:
+                del _recent_model_ms[:-METRICS_WINDOW_SIZE]
+        return {
+            "request_id": request_id,
+            "output": output,
+            "model_ms": round(model_ms, 2),
+            "input_tokens": input_tokens,
+        }
 
     except Exception as exc:
         log.exception("inference failed")

@@ -55,7 +55,17 @@ into PROTECTION mode during the run.
 timing instead of loading a model. To use the real model, set
 `MOCK_MODEL=false` in `.env` and allow ~2 minutes for the first startup
 (`google/flan-t5-small`, ~300 MB). The API, the shield, and every experiment
-are byte-identical either way — the mock only replaces the forward pass.
+use the same required response fields and request path either way — the mock
+only replaces the forward pass with calibrated timing.
+
+### Team continuation
+
+- `docs/PERSON1_HANDOFF.md` records Person 1's completed work and the remaining
+  Person 2/Person 3 responsibilities.
+- `docs/MASTER_PROMPTS_PERSON_2_AND_3.md` contains separate copy-paste prompts
+  for the two teammates.
+- `docs/DOCKER_INTERFACE_TEST_COMMANDS.md` is the Windows PowerShell Docker and
+  interface verification runbook.
 
 ### Without Docker
 
@@ -100,8 +110,9 @@ results/     raw CSVs and generated charts. Committed, so results are auditable.
 **Why cost pricing.** `analysis/calibrate.py` sweeps input length against
 output length on the real model and fits
 `model_ms ≈ c0 + c_in·input_tokens + c_out·max_new_tokens` by least squares.
-Client budgets are then denominated in the resulting milliseconds, so a
-512-token generation costs ~26x a short one — because it *does*.
+The real Docker run on the reference laptop produced R² = 0.8912 and a
+modelled range from 731 ms to 6,147 ms across the measured grid — an 8.4x
+cost ratio. Client budgets are denominated in those measured milliseconds.
 
 **Why an outstanding-request cap.** A real user is closed-loop: send, wait,
 think, send. They essentially never have more than one request in flight.

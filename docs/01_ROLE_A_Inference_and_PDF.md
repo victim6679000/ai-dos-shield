@@ -126,8 +126,11 @@ model_ms ≈ c0 + c_in · input_tokens + c_out · max_new_tokens
 ```
 
 It prints the coefficients, the **R²**, and the cheap-vs-expensive cost
-ratio. Paste the coefficients into `.env` and give the R² to A-as-PDF-author
-(you) and to C.
+ratio. The reference-laptop run completed on 9 September 2026 with R² =
+**0.8912** and an **8.4x** modelled cost ratio. Its coefficients are in
+`.env.example`, and the full 48-observation record is in
+`results/raw/calibration.json`. Give those results to A-as-PDF-author (you)
+and to C.
 
 Why this matters: without it, C's limiter charges clients in made-up
 credits. With it, the limiter charges in **measured milliseconds of
@@ -169,14 +172,14 @@ team as you go rather than asking for everything on Friday:
 
 ## 7. Definition of done
 
-- [ ] `POST /infer` matches the contract and returns a real model result
-- [ ] `GET /health` returns 200 reliably once the model is ready
-- [ ] Model loaded exactly once; server survives controlled overload
-- [ ] Every response carries `request_id` and `model_ms`
-- [ ] Active/total counters never leak, verified after a failed run
-- [ ] Oversized input returns 413 before any model work
-- [ ] Calibration run on the demo laptop, coefficients in `.env`, R² recorded
-- [ ] `MOCK_MODEL=true` and `false` both work and give the same API
+- [x] `POST /infer` matches the contract and returns a real model result
+- [x] `GET /health` returns 200 reliably once the model is ready
+- [x] Model loaded exactly once; server survives controlled overload
+- [x] Every response carries `request_id` and `model_ms`
+- [x] Active/total counters never leak, verified after a failed run
+- [x] Oversized input returns 413 before any model work
+- [x] Calibration run on the demo laptop, coefficients in `.env`, R² recorded
+- [x] `MOCK_MODEL=true` and `false` both work and give the same API
 - [ ] B has run normal and overload traffic directly against it
 - [ ] C has forwarded traffic through the shield to it
 - [ ] `docs/CASE_PDF.md` complete, exported ≤5 pages and ≤20 MiB
@@ -202,8 +205,9 @@ request cost.
 
 **Where do your cost coefficients come from?**
 A calibration sweep against the real model — sixteen configurations of input
-length by output length, fitted by least squares, R² of [your number]. They
-are measured, not assumed.
+length by output length with three repeats each, fitted by least squares. The
+reference run produced R² = 0.8912 and an 8.4x modelled cost range. They are
+measured, not assumed.
 
 **Why does p95 rise under overload but the average stay tolerable?**
 As arrival rate approaches capacity, queueing delay grows non-linearly and
@@ -216,6 +220,8 @@ against cost-based abuse it scales your bill rather than solving the
 problem. Admission control is what protects finite inference capacity.
 
 **Did you use the mock mode in this demo?**
-[Answer honestly.] It replaces only the forward pass with a timing model
-fitted to real measurements and runs through the identical concurrency path.
+Both modes were tested. The calibration used the real model; mock mode
+replaces only the forward pass with a timing model fitted to those real
+measurements and runs through the same concurrency path. For the final demo,
+state honestly which mode produced the numbers being shown.
 The real model is one environment variable away.
