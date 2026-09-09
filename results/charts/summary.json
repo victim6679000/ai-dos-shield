@@ -1,0 +1,24 @@
+{
+  "profile": "flood",
+  "direct": {
+    "legit_requests": 36,
+    "legit_success": 36,
+    "legit_success_rate": 100.0,
+    "legit_p50_ms": 374.2,
+    "legit_p95_ms": 11249.3,
+    "attack_requests": 197,
+    "attack_rejected": 0
+  },
+  "shielded": {
+    "legit_requests": 43,
+    "legit_success": 43,
+    "legit_success_rate": 100.0,
+    "legit_p50_ms": 390.3,
+    "legit_p95_ms": 1766.3,
+    "attack_requests": 197,
+    "attack_rejected": 152
+  },
+  "p95_improvement_x": 6.4,
+  "direct_run": "20260908-192044_flood_direct",
+  "shield_run": "20260908-192133_flood_shield"
+}

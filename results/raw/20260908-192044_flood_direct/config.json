@@ -1,0 +1,25 @@
+{
+  "run_id": "20260908-192044_flood_direct",
+  "profile": "flood",
+  "target": "http://127.0.0.1:8000",
+  "target_label": "direct",
+  "duration_s": 20,
+  "seed": 42,
+  "profile_spec": {
+    "description": "Sustained high request rate from many clients.",
+    "legit_users": 4,
+    "attackers": [
+      {
+        "kind": "burst",
+        "clients": 12,
+        "rps": 20,
+        "start": 10,
+        "stop": 9999,
+        "max_new_tokens": 16,
+        "text_repeat": 1
+      }
+    ]
+  },
+  "started_utc": "2026-09-08T19:21:33.070599+00:00",
+  "requests": 233
+}

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Shield Status</title>
+<style>
+  :root { --bg:#0b1220; --panel:#131c2e; --line:#233047; --txt:#e6edf7;
+          --dim:#8fa3c0; --ok:#2ecc8f; --warn:#f5a623; --bad:#ef4d5a; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt);
+         font:14px/1.5 ui-monospace,"SF Mono",Menlo,Consolas,monospace; padding:24px; }
+  h1 { font-size:16px; letter-spacing:.14em; text-transform:uppercase;
+       color:var(--dim); font-weight:600; margin:0 0 20px; }
+  .mode { display:inline-block; padding:14px 28px; border-radius:8px; font-size:26px;
+          font-weight:700; letter-spacing:.06em; margin-bottom:6px; }
+  .NORMAL { background:rgba(46,204,143,.14); color:var(--ok); border:1px solid var(--ok); }
+  .PROTECTION { background:rgba(239,77,90,.14); color:var(--bad); border:1px solid var(--bad);
+                animation:pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity:.62 } }
+  .reason { color:var(--dim); font-size:12px; margin:0 0 22px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px; }
+  .label { color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:.09em; }
+  .val { font-size:28px; font-weight:700; margin-top:6px; }
+  .bar { height:9px; background:var(--line); border-radius:5px; margin-top:10px; overflow:hidden; }
+  .fill { height:100%; background:var(--ok); transition:width .35s, background .35s; }
+  table { width:100%; border-collapse:collapse; margin-top:22px; font-size:12px; }
+  th,td { text-align:left; padding:7px 10px; border-bottom:1px solid var(--line); }
+  th { color:var(--dim); font-weight:500; text-transform:uppercase; font-size:10px;
+       letter-spacing:.09em; }
+  .err { color:var(--bad); }
+</style>
+</head>
+<body>
+<h1>AI Inference Shield &mdash; live status</h1>
+<div id="mode" class="mode NORMAL">CONNECTING</div>
+<p class="reason" id="reason">&nbsp;</p>
+
+<div class="grid">
+  <div class="card"><div class="label">Active</div><div class="val" id="active">-</div>
+    <div class="bar"><div class="fill" id="occbar" style="width:0%"></div></div></div>
+  <div class="card"><div class="label">Queued</div><div class="val" id="waiting">-</div></div>
+  <div class="card"><div class="label">Allowed</div><div class="val" id="allowed">-</div></div>
+  <div class="card"><div class="label">429 throttled</div>
+    <div class="val" style="color:var(--warn)" id="c429">-</div></div>
+  <div class="card"><div class="label">503 shed</div>
+    <div class="val" style="color:var(--bad)" id="c503">-</div></div>
+  <div class="card"><div class="label">Gateway p95</div><div class="val" id="p95">-</div></div>
+</div>
+
+<table>
+  <thead><tr><th>t (s)</th><th>Automatic mode transition</th><th>Occupancy</th><th>p95 (ms)</th></tr></thead>
+  <tbody id="trans"><tr><td colspan="4" style="color:var(--dim)">no transitions yet</td></tr></tbody>
+</table>
+
+<script>
+const URL = new URLSearchParams(location.search).get("shield") || "http://localhost:8080";
+const $ = id => document.getElementById(id);
+
+async function tick() {
+  try {
+    const s = await (await fetch(URL + "/shield/status")).json();
+    const m = $("mode");
+    m.textContent = s.mode; m.className = "mode " + s.mode;
+    $("reason").textContent = s.mitigation_enabled
+      ? `budget ${s.limiter.refill_ms_per_s} ms/s per client · queue ${s.max_active}+${s.max_waiting} · ${s.limiter.tracked_clients} clients tracked`
+      : "MITIGATION DISABLED — pass-through proxy (control experiment)";
+    $("active").textContent  = s.active;
+    $("waiting").textContent = s.waiting;
+    $("allowed").textContent = s.counters.allowed.toLocaleString();
+    $("c429").textContent    = s.counters.rate_limited_429.toLocaleString();
+    $("c503").textContent    = s.counters.shed_503.toLocaleString();
+    $("p95").textContent     = s.p95_ms ? Math.round(s.p95_ms) : "-";
+
+    const pct = Math.min(100, s.occupancy * 100);
+    const bar = $("occbar");
+    bar.style.width = pct + "%";
+    bar.style.background = pct > 70 ? "var(--bad)" : pct > 40 ? "var(--warn)" : "var(--ok)";
+
+    const tb = $("trans");
+    if (s.transitions && s.transitions.length) {
+      tb.innerHTML = s.transitions.slice().reverse().map(t =>
+        `<tr><td>${t.t}</td><td>&rarr; ${t.to}</td><td>${(t.occupancy*100).toFixed(0)}%</td>` +
+        `<td>${t.p95_ms ?? "-"}</td></tr>`).join("");
+    }
+  } catch (e) {
+    $("reason").innerHTML = `<span class="err">cannot reach ${URL}</span>`;
+  }
+}
+tick(); setInterval(tick, 500);
+</script>
+</body>
+</html>

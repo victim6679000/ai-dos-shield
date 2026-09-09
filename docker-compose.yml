@@ -1,0 +1,17 @@
+services:
+  inference:
+    build: ./inference
+    ports: ["8000:8000"]
+    env_file: [.env]
+    environment:
+      MOCK_MODEL: ${MOCK_MODEL:-true}
+    volumes: ["./.hf_cache:/app/.hf_cache"]
+
+  shield:
+    build: ./shield
+    ports: ["8080:8080"]
+    env_file: [.env]
+    environment:
+      INFERENCE_URL: http://inference:8000
+    depends_on:
+      inference: {condition: service_healthy}
