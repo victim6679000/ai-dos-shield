@@ -16,7 +16,17 @@ existing implementation. Do not start over.
 ## Repository and branch
 
 - Repository: `https://github.com/victim6679000/ai-dos-shield`
+- This is a private repository. Confirm that the owner added your GitHub account
+  as a collaborator, accept the invitation, and authenticate Git on your
+  machine. No API key is required.
 - Person 1 pull request: `https://github.com/victim6679000/ai-dos-shield/pull/1`
+- If the repository is not already on your machine, download it first:
+
+```powershell
+git clone https://github.com/victim6679000/ai-dos-shield.git
+Set-Location ai-dos-shield
+```
+
 - Until that PR is merged, create your branch from
   `origin/codex/person1-calibration`, for example:
 
@@ -25,8 +35,13 @@ git fetch origin
 git switch --create codex/person2-evidence origin/codex/person1-calibration
 ```
 
-- If PR #1 has already been merged, update `main` and branch from the updated
-  `origin/main` instead.
+- If PR #1 has already been merged, use these exact commands instead:
+
+```powershell
+git fetch origin
+git switch --create codex/person2-evidence origin/main
+```
+
 - Never rewrite Person 1's history or commit directly to `main`.
 
 ## Read before changing anything
@@ -281,7 +296,17 @@ Build on the existing implementation. Do not start over.
 ## Repository and branch
 
 - Repository: `https://github.com/victim6679000/ai-dos-shield`
+- This is a private repository. Confirm that the owner added your GitHub account
+  as a collaborator, accept the invitation, and authenticate Git on your
+  machine. No API key is required.
 - Person 1 pull request: `https://github.com/victim6679000/ai-dos-shield/pull/1`
+- If the repository is not already on your machine, download it first:
+
+```powershell
+git clone https://github.com/victim6679000/ai-dos-shield.git
+Set-Location ai-dos-shield
+```
+
 - Until that PR is merged, create your branch from
   `origin/codex/person1-calibration`, for example:
 
@@ -290,8 +315,13 @@ git fetch origin
 git switch --create codex/person3-shield origin/codex/person1-calibration
 ```
 
-- If PR #1 has already been merged, update `main` and branch from the updated
-  `origin/main` instead.
+- If PR #1 has already been merged, use these exact commands instead:
+
+```powershell
+git fetch origin
+git switch --create codex/person3-shield origin/main
+```
+
 - Never rewrite Person 1's history or commit directly to `main`.
 
 ## Read before changing anything
