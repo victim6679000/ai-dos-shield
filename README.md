@@ -58,6 +58,15 @@ timing instead of loading a model. To use the real model, set
 use the same required response fields and request path either way — the mock
 only replaces the forward pass with calibrated timing.
 
+### Team continuation
+
+- `docs/PERSON1_HANDOFF.md` records Person 1's completed work and the remaining
+  Person 2/Person 3 responsibilities.
+- `docs/MASTER_PROMPTS_PERSON_2_AND_3.md` contains separate copy-paste prompts
+  for the two teammates.
+- `docs/DOCKER_INTERFACE_TEST_COMMANDS.md` is the Windows PowerShell Docker and
+  interface verification runbook.
+
 ### Without Docker
 
 ```bash
